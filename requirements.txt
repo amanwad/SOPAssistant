@@ -2,3 +2,9 @@ fastapi[standard]
 uvicorn[standard]
 python-multipart
 python-dotenv
+PyPDF2
+python-docx
+pandas
+openpyxl
+Pillow
+pytesseract

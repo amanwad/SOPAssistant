@@ -59,24 +59,6 @@ const FileUploadComponent = () => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  const simulateUpload = (file) => {
-    return new Promise((resolve) => {
-      let progress = 0;
-      const interval = setInterval(() => {
-        progress += Math.random() * 30;
-        if (progress >= 100) {
-          progress = 100;
-          clearInterval(interval);
-          resolve();
-        }
-        setUploadProgress(prev => ({
-          ...prev,
-          [file.id]: Math.min(progress, 100)
-        }));
-      }, 200);
-    });
-  };
-
   const uploadFiles = async () => {
     const pendingFiles = files.filter(f => f.status === 'pending');
     
@@ -84,36 +66,29 @@ const FileUploadComponent = () => {
       setFiles(prev => prev.map(f => 
         f.id === file.id ? { ...f, status: 'uploading' } : f
       ));
-      
+
+      const formData = new FormData();
+      formData.append('file', file.file);
+
       try {
-        // Simulate upload process
-        await simulateUpload(file);
-        
+        const response = await fetch('http://127.0.0.1:8000/upload/', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!response.ok) {
+          throw new Error('Upload failed');
+        }
+
         setFiles(prev => prev.map(f => 
           f.id === file.id ? { ...f, status: 'completed' } : f
         ));
-        
-        // Here you would typically send the file to your server
-        console.log('File uploaded:', {
-          name: file.name,
-          size: file.size,
-          type: file.type,
-          content: file.file // The actual File object
-        });
-        
-        // Example of reading file content:
-        if (file.type.startsWith('text/')) {
-          const reader = new FileReader();
-          reader.onload = (e) => {
-            console.log('File content:', e.target.result);
-          };
-          reader.readAsText(file.file);
-        }
-        
+        setUploadProgress(prev => ({ ...prev, [file.id]: 100 }));
       } catch (error) {
         setFiles(prev => prev.map(f => 
           f.id === file.id ? { ...f, status: 'error' } : f
         ));
+        setUploadProgress(prev => ({ ...prev, [file.id]: 0 }));
         console.error('Upload failed:', error);
       }
     }
