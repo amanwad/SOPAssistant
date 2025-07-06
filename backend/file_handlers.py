@@ -4,11 +4,13 @@ from typing import Dict, Any, Optional
 import logging
 
 # Import libraries for different file types
-import PyPDF2
+import pymupdf
 import docx
 import pandas as pd
 from PIL import Image
 import pytesseract
+
+from embedding import split_and_upsert
 
 class FileHandler:
     """Handler class for processing different file types and extracting text content."""
@@ -30,6 +32,11 @@ class FileHandler:
             '.bmp': self._handle_image_file,
             '.tiff': self._handle_image_file,
         }
+        uploads_dir = Path(__file__).parent / "uploads"
+        if uploads_dir.exists() and uploads_dir.is_dir():
+            self.doc_num = len([f for f in uploads_dir.iterdir() if f.is_file()])
+        else:
+            self.doc_num = 0
     
     def process_file(self, file_path: str) -> Dict[str, Any]:
         """
@@ -41,7 +48,10 @@ class FileHandler:
         Returns:
             Dictionary containing extracted text and metadata
         """
+        print(file_path)
         file_path = Path(file_path)
+
+        
         
         if not file_path.exists():
             return {
@@ -68,9 +78,11 @@ class FileHandler:
         try:
             handler_func = self.supported_extensions[file_extension]
             result = handler_func(file_path)
+            print("process file handler", result)
             result['metadata']['file_type'] = file_extension
             result['metadata']['file_size'] = file_path.stat().st_size
             result['metadata']['file_name'] = file_path.name
+            self.doc_num += 1
             return result
         except Exception as e:
             return {
@@ -123,23 +135,35 @@ class FileHandler:
         """Handle PDF files using PyPDF2"""
         try:
             text = ""
-            with open(file_path, 'rb') as file:
-                pdf_reader = PyPDF2.PdfReader(file)
-                num_pages = len(pdf_reader.pages)
-                
-                for page_num in range(num_pages):
-                    page = pdf_reader.pages[page_num]
-                    text += page.extract_text() + "\n"
+            file = pymupdf.open(file_path)
+            for i, page in enumerate(file):
+                print("iterating")
+                metadata = {
+                    "page_number": i,
+                    "file_name": file_path.name,
+                    "file_path": str(file_path),
+                    "file_size": file_path.stat().st_size,
+                    "file_type": file_path.suffix,
+                    "doc_num": self.doc_num
+                }
+                print(metadata)
+                split_and_upsert(page.get_text(), metadata)
+                print("upsert")
+                text += page.get_text() + "\n"
             
-            return {
+            print("153")
+            page_count = file.page_count if hasattr(file, "page_count") else len(file)
+            result = {
                 'success': True,
                 'text': text.strip(),
                 'metadata': {
-                    'page_count': num_pages,
+                    'page_count': page_count,
                     'line_count': len(text.splitlines()),
                     'word_count': len(text.split())
                 }
             }
+            return result
+            
         except Exception as e:
             return {
                 'success': False,
@@ -153,7 +177,16 @@ class FileHandler:
             doc = docx.Document(file_path)
             text = ""
             
-            for paragraph in doc.paragraphs:
+            for i, paragraph in enumerate(doc.paragraphs):
+                metadata = {
+                    "paragraph_number": i,
+                    "file_name": file_path.name,
+                    "file_path": file_path,
+                    "file_size": file_path.stat().st_size,
+                    "file_type": file_path.suffix,
+                    "doc_num": self.doc_num
+                }
+                split_and_upsert(paragraph.text, metadata)
                 text += paragraph.text + "\n"
             
             return {
@@ -259,6 +292,8 @@ class FileHandler:
                 'text': ''
             }
     
+    
+
     def get_supported_formats(self) -> list:
         """Get list of supported file formats"""
         return list(self.supported_extensions.keys())

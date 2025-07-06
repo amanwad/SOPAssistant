@@ -1,18 +1,17 @@
 import React from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import './App.css';
 import FileUploadComponent from './components/FileUploadComponent';
+import SearchPage from './components/SearchPage';
 
 function App() {
   return (
-    <div className="App">
-      <header className="App-header">
-        <h1>SOP Assistant - File Upload</h1>
-        <p>Upload your Standard Operating Procedure documents</p>
-      </header>
-      <main>
-        <FileUploadComponent />
-      </main>
-    </div>
+    <Router>
+      <Routes>
+        <Route path="/" element={<FileUploadComponent />} />
+        <Route path="/search" element={<SearchPage />} />
+      </Routes>
+    </Router>
   );
 }
 

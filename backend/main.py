@@ -32,12 +32,16 @@ async def upload_file(file: UploadFile = File(...)):
     
     # Process the file to extract text content
     processing_result = file_handler.process_file(str(file_location))
-    
-    return {
+
+    result = {
         "filename": file.filename,
         "saved_to": str(file_location),
         "processing_result": processing_result
     }
+
+    print(result)
+    
+    return result
 
 @app.get("/supported-formats/")
 async def get_supported_formats():

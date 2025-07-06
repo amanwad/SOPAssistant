@@ -1,11 +1,14 @@
 import React, { useState, useRef } from 'react';
 import './FileUploadComponent.css';
+import { useNavigate } from 'react-router-dom';
 
 const FileUploadComponent = () => {
   const [files, setFiles] = useState([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const [uploadProgress, setUploadProgress] = useState({});
   const fileInputRef = useRef(null);
+  const navigate = useNavigate();
+  const [showNextButton, setShowNextButton] = useState(false);
 
   const handleFileSelect = (selectedFiles) => {
     const newFiles = Array.from(selectedFiles).map(file => ({
@@ -61,25 +64,23 @@ const FileUploadComponent = () => {
 
   const uploadFiles = async () => {
     const pendingFiles = files.filter(f => f.status === 'pending');
+    let completedCount = 0;
+    const totalFiles = pendingFiles.length;
     
     for (const file of pendingFiles) {
       setFiles(prev => prev.map(f => 
         f.id === file.id ? { ...f, status: 'uploading' } : f
       ));
-
       const formData = new FormData();
       formData.append('file', file.file);
-
       try {
         const response = await fetch('http://127.0.0.1:8000/upload/', {
           method: 'POST',
           body: formData,
         });
-
         if (!response.ok) {
           throw new Error('Upload failed');
         }
-
         setFiles(prev => prev.map(f => 
           f.id === file.id ? { ...f, status: 'completed' } : f
         ));
@@ -90,6 +91,12 @@ const FileUploadComponent = () => {
         ));
         setUploadProgress(prev => ({ ...prev, [file.id]: 0 }));
         console.error('Upload failed:', error);
+      }
+      
+      completedCount++;
+      // Show next button when all uploads are completed
+      if (completedCount === totalFiles) {
+        setShowNextButton(true);
       }
     }
   };
@@ -175,6 +182,17 @@ const FileUploadComponent = () => {
               </div>
             ))}
           </div>
+          
+          {showNextButton && (
+            <div className="next-button-container">
+              <button 
+                className="next-btn"
+                onClick={() => navigate('/search')}
+              >
+                Next: Search Documents →
+              </button>
+            </div>
+          )}
         </div>
       )}
 
